@@ -31,6 +31,10 @@ Query S1 (monthly, both teams): fields=["finance_daily_summary_rg.team", "financ
 
 Query S2 (quarterly, both teams): fields=["finance_daily_summary_rg.team", "finance_daily_summary_rg.date_quarter", "finance_daily_summary_rg.gross_profit"], filters={"finance_daily_summary_rg.date_quarter": "this quarter"}
 
+Query S3 (14-day daily, for run rate): fields=["finance_daily_summary_rg.team", "finance_daily_summary_rg.date_date", "finance_daily_summary_rg.gross_profit"], filters={"finance_daily_summary_rg.date_date": "14 days", "finance_daily_summary_rg.date_quarter": "this quarter"}, sorts=["finance_daily_summary_rg.date_date asc"]
+From S3: daily_avg_us = sum(gross_profit where team="US team") / count of distinct dates for US team
+         daily_avg_global = sum(gross_profit where team="Global team") / count of distinct dates for Global team
+
 Teams are labeled "US team" (→ Supply US) and "Global team" (→ Supply Global) in the results.
 
 **Step 3 — Calculate Aura apps run rate**
@@ -59,9 +63,11 @@ teams["Aura apps"]:
 
 teams["Supply US"]:
 - actuals: monthly from S1 where team="US team" (rounded), quarter from S2 where team="US team" (rounded)
+- dailyAvg14d: daily_avg_us from S3 (rounded)
 
 teams["Supply Global"]:
 - actuals: monthly from S1 where team="Global team" (rounded), quarter from S2 where team="Global team" (rounded)
+- dailyAvg14d: daily_avg_global from S3 (rounded)
 
 Set lastUpdated to todays ISO date string.
 

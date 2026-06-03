@@ -971,20 +971,18 @@
             const totTarget  = usTarget  + glTarget;
             const totActual  = usActual  + glActual;
 
-            // Run rate: use Jun daily avg × days remaining to project EoQ
-            const today       = new Date();
-            const daysIntoJun = today.getDate();
-            const daysLeftJun = 30 - today.getDate();
-            const months      = monthsFor(quarter);
-            const curMonth    = months[months.length - 1]; // last month of quarter
+            // Run rate: use 14-day daily avg × days remaining in quarter
+            const today      = new Date();
+            const qEnd       = new Date(today.getFullYear(), today.getMonth() <= 5 ? 5 : today.getMonth() <= 8 ? 8 : 11, 30);
+            const daysLeftQ  = Math.max(0, Math.round((qEnd - today) / 86400000));
+            const months     = monthsFor(quarter);
 
             function projectTeam(teamData) {
-                const apr = teamData.actuals[months[0]] || 0;
-                const may = teamData.actuals[months[1]] || 0;
-                const junActual = teamData.actuals[curMonth] || 0;
-                const dailyAvg  = daysIntoJun > 0 ? junActual / daysIntoJun : 0;
-                const junProj   = junActual + dailyAvg * daysLeftJun;
-                return Math.round(apr + may + junProj);
+                const qActual  = teamData.actuals[quarter.split('-')[0]] || 0;
+                const daily14d = teamData.dailyAvg14d || 0;
+                return daily14d > 0
+                    ? Math.round(qActual + daily14d * daysLeftQ)
+                    : qActual; // fallback: no projection if avg not available
             }
 
             const usProj  = projectTeam(us);

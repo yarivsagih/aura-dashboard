@@ -98,7 +98,8 @@
             "sprint",
             "verizon",
             "solutions"
-          ]
+          ],
+          "dailyAvg14d": 186116
         },
         "Supply Global": {
           "outlook": {
@@ -141,7 +142,8 @@
             "clearly_google_play",
             "tmobile",
             "T-Mobile"
-          ]
+          ],
+          "dailyAvg14d": 116228
         }
       },
       "targetsSet": true,
