@@ -422,6 +422,26 @@
         @media (max-width: 640px) {
             .kpi-strip { grid-template-columns: 1fr; }
         }
+
+        /* ── Split layout ── */
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        .split-side { display: flex; flex-direction: column; gap: 18px; }
+        .side-label {
+            display: flex; align-items: center; gap: 10px;
+            padding-bottom: 4px;
+        }
+        .side-label h2 {
+            font-size: 17px; font-weight: 800; color: var(--text);
+            letter-spacing: -0.3px; margin: 0;
+        }
+        .side-bar { width: 4px; height: 20px; border-radius: 2px; flex-shrink: 0; }
+        .supply-bar { background: linear-gradient(180deg, #0D9B72, #7C5CFC); }
+        .demand-bar { background: linear-gradient(180deg, #5C3DE4, #2563EB); }
+        @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -470,53 +490,75 @@
     <div class="page-body">
         <div id="alertContainer"></div>
 
-        <div class="grid">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Overall Performance</span>
-                    <span class="card-chip" id="overallBadge">Q2 2026</span>
+        <div class="split-layout">
+
+            <!-- ── Supply side ── -->
+            <div class="split-side">
+                <div class="side-label">
+                    <span class="side-bar supply-bar"></span>
+                    <h2>Supply</h2>
+                    <span class="card-chip">US + Global</span>
                 </div>
-                <div class="chart-container">
-                    <canvas id="overallChart"></canvas>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Quarterly Overview</span>
+                        <span class="card-chip" id="supplyQBadge">Q2 2026</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="supplyQuarterlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Monthly Breakdown</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="supplyMonthlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Breakdown</span>
+                        <span class="card-chip">US + Global · Quarterly</span>
+                    </div>
+                    <div id="supplyMergedView"></div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Monthly Breakdown</span>
+            <!-- ── Demand side ── -->
+            <div class="split-side">
+                <div class="side-label">
+                    <span class="side-bar demand-bar"></span>
+                    <h2>Demand</h2>
+                    <span class="card-chip">US + TLV</span>
                 </div>
-                <div class="chart-container">
-                    <canvas id="monthlyChart"></canvas>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Quarterly Overview</span>
+                        <span class="card-chip" id="demandQBadge">Q2 2026</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="demandQuarterlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Monthly Breakdown</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="demandMonthlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Breakdown</span>
+                        <span class="card-chip">US + TLV · Quarterly</span>
+                    </div>
+                    <div id="demandMergedView"></div>
                 </div>
             </div>
+
         </div>
-
-        <div class="grid">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Aura Apps</span>
-                    <span class="card-chip">Gross Profit</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="auraAppsChart"></canvas>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Demand</span>
-                    <span class="card-chip">US + TLV · Quarterly</span>
-                </div>
-                <div id="demandMergedView"></div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Supply</span>
-                    <span class="card-chip">US + Global · Quarterly</span>
-                </div>
-                <div id="supplyMergedView"></div>
-            </div>
         </div>
     </div>
 
@@ -578,14 +620,14 @@
             document.getElementById('lastUpdated').textContent =
                 d ? 'Updated ' + d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : 'No update yet';
 
-            document.getElementById('overallBadge').textContent = quarter.replace('-', ' ');
 
             updateKpiStrip(qd, quarter);
-            createOverallChart(qd, quarter);
-            createMonthlyChart(qd, quarter);
-            createTeamCharts(qd, quarter);
-            updateDemandMerged(qd, quarter);
+            createSupplyQuarterlyChart(qd, quarter);
+            createSupplyMonthlyChart(qd, quarter);
+            createDemandQuarterlyChart(qd, quarter);
+            createDemandMonthlyChart(qd, quarter);
             updateSupplyMerged(qd, quarter);
+            updateDemandMerged(qd, quarter);
         }
 
         /* ── KPI strip ── */
@@ -722,6 +764,111 @@
                     data: { labels: months, datasets },
                     options: chartOptions(),
                 });
+            });
+        }
+
+        /* ── Supply quarterly overview ── */
+        function createSupplyQuarterlyChart(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const us = qd.teams['Supply US'], gl = qd.teams['Supply Global'];
+            const usO = us.outlook ? (us.outlook[qk] || 0) : 0;
+            const glO = gl.outlook ? (gl.outlook[qk] || 0) : 0;
+            const usT = us.targets ? (us.targets[qk] || 0) : 0;
+            const glT = gl.targets ? (gl.targets[qk] || 0) : 0;
+            const usA = us.actuals[qk] || 0, glA = gl.actuals[qk] || 0;
+            if (charts.supplyQ) charts.supplyQ.destroy();
+            document.getElementById('supplyQBadge').textContent = quarter.replace('-', ' ');
+            charts.supplyQ = new Chart(document.getElementById('supplyQuarterlyChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Supply US', 'Supply Global', 'Combined'],
+                    datasets: [
+                        { label: 'Outlook', data: [usO, glO, usO+glO], backgroundColor: COLORS.outlook.fill, borderColor: COLORS.outlook.line, borderWidth: 1.5, borderRadius: 4 },
+                        { label: 'Target',  data: [usT, glT, usT+glT], backgroundColor: COLORS.target.fill,  borderColor: COLORS.target.line,  borderWidth: 1.5, borderRadius: 4 },
+                        { label: 'Actual',  data: [usA, glA, usA+glA], backgroundColor: COLORS.actual.fill,  borderColor: COLORS.actual.line,  borderWidth: 1.5, borderRadius: 4 },
+                    ]
+                },
+                options: chartOptions()
+            });
+        }
+
+        /* ── Supply monthly chart ── */
+        function createSupplyMonthlyChart(qd, quarter) {
+            const months = monthsFor(quarter);
+            const us = qd.teams['Supply US'], gl = qd.teams['Supply Global'];
+            function supplyAfterLabel(ctx) {
+                const team = ctx.dataset.label; const month = months[ctx.dataIndex]; const v = ctx.parsed.y;
+                if (team === 'Combined' || !v) return;
+                const td = team === 'Supply US' ? us : gl; const lines = [];
+                const t = td.targets && td.targets[month]; const o = td.outlook && td.outlook[month];
+                if (t) lines.push('vs Target:  ' + ((v/t)*100).toFixed(1) + '%');
+                if (o) lines.push('vs Outlook: ' + ((v/o)*100).toFixed(1) + '%');
+                return lines;
+            }
+            if (charts.supplyM) charts.supplyM.destroy();
+            charts.supplyM = new Chart(document.getElementById('supplyMonthlyChart'), {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        { label: 'Supply US',     data: months.map(m => us.actuals[m]||0), borderColor:'#7C5CFC', backgroundColor:'#7C5CFC18', borderWidth:2, pointRadius:3, fill:false, tension:0.3 },
+                        { label: 'Supply Global', data: months.map(m => gl.actuals[m]||0), borderColor:'#0D9B72', backgroundColor:'#0D9B7218', borderWidth:2, pointRadius:3, fill:false, tension:0.3 },
+                        { label: 'Combined',      data: months.map(m => (us.actuals[m]||0)+(gl.actuals[m]||0)), borderColor:'#1C2333', backgroundColor:'#1C233318', borderWidth:2, pointRadius:3, fill:false, tension:0.3, borderDash:[4,2] },
+                    ]
+                },
+                options: chartOptions(supplyAfterLabel)
+            });
+        }
+
+        /* ── Demand quarterly overview ── */
+        function createDemandQuarterlyChart(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const us = qd.teams['Demand US'], tlv = qd.teams['Demand TLV'];
+            const usT  = us.targets  ? (us.targets[qk]  || 0) : 0;
+            const tlvT = tlv.targets ? (tlv.targets[qk] || 0) : 0;
+            const usA  = us.actuals[qk]  || 0, tlvA = tlv.actuals[qk] || 0;
+            const usP  = us.runRate  ? (us.runRate[qk]  || 0) : usA;
+            const tlvP = tlv.runRate ? (tlv.runRate[qk] || 0) : tlvA;
+            if (charts.demandQ) charts.demandQ.destroy();
+            document.getElementById('demandQBadge').textContent = quarter.replace('-', ' ');
+            charts.demandQ = new Chart(document.getElementById('demandQuarterlyChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Demand US', 'Demand TLV', 'Combined'],
+                    datasets: [
+                        { label: 'Target',   data: [usT,  tlvT,  usT+tlvT],  backgroundColor: COLORS.target.fill,  borderColor: COLORS.target.line,  borderWidth: 1.5, borderRadius: 4 },
+                        { label: 'Actual',   data: [usA,  tlvA,  usA+tlvA],  backgroundColor: COLORS.actual.fill,  borderColor: COLORS.actual.line,  borderWidth: 1.5, borderRadius: 4 },
+                        { label: 'Run Rate', data: [usP,  tlvP,  usP+tlvP],  backgroundColor: COLORS.runRate.fill, borderColor: COLORS.runRate.line, borderWidth: 1.5, borderRadius: 4 },
+                    ]
+                },
+                options: chartOptions()
+            });
+        }
+
+        /* ── Demand monthly chart ── */
+        function createDemandMonthlyChart(qd, quarter) {
+            const months = monthsFor(quarter);
+            const us = qd.teams['Demand US'], tlv = qd.teams['Demand TLV'];
+            function demandAfterLabel(ctx) {
+                const team = ctx.dataset.label; const month = months[ctx.dataIndex]; const v = ctx.parsed.y;
+                if (team === 'Combined' || !v) return;
+                const td = team === 'Demand US' ? us : tlv; const lines = [];
+                const t = td.targets && td.targets[month];
+                if (t) lines.push('vs Target: ' + ((v/t)*100).toFixed(1) + '%');
+                return lines;
+            }
+            if (charts.demandM) charts.demandM.destroy();
+            charts.demandM = new Chart(document.getElementById('demandMonthlyChart'), {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        { label: 'Demand US',  data: months.map(m => us.actuals[m] ||0), borderColor:'#5C3DE4', backgroundColor:'#5C3DE418', borderWidth:2, pointRadius:3, fill:false, tension:0.3 },
+                        { label: 'Demand TLV', data: months.map(m => tlv.actuals[m]||0), borderColor:'#2563EB', backgroundColor:'#2563EB18', borderWidth:2, pointRadius:3, fill:false, tension:0.3 },
+                        { label: 'Combined',   data: months.map(m => (us.actuals[m]||0)+(tlv.actuals[m]||0)), borderColor:'#1C2333', backgroundColor:'#1C233318', borderWidth:2, pointRadius:3, fill:false, tension:0.3, borderDash:[4,2] },
+                    ]
+                },
+                options: chartOptions(demandAfterLabel)
             });
         }
 
