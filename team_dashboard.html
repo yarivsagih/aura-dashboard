@@ -320,10 +320,10 @@
             grid-template-columns: 100px repeat(4, 1fr);
         }
 
-        /* Supply breakdown table: Outlook / Target / Actuals / vs Outlook / vs Target */
+        /* Supply breakdown table: Outlook / Target / Actuals / Projected / vs Outlook / vs Target */
         .supply-breakdown-table .supply-table-head,
         .supply-breakdown-table .supply-table-row {
-            grid-template-columns: 100px repeat(3, 1fr) 72px 72px;
+            grid-template-columns: 100px repeat(4, 1fr) 72px 72px;
         }
 
         .supply-table-head {
@@ -971,10 +971,30 @@
             const totTarget  = usTarget  + glTarget;
             const totActual  = usActual  + glActual;
 
-            const pVsTarget  = pct(totActual, totTarget);
-            const pVsOutlook = pct(totActual, totOutlook);
+            // Run rate: use Jun daily avg × days remaining to project EoQ
+            const today       = new Date();
+            const daysIntoJun = today.getDate();
+            const daysLeftJun = 30 - today.getDate();
+            const months      = monthsFor(quarter);
+            const curMonth    = months[months.length - 1]; // last month of quarter
+
+            function projectTeam(teamData) {
+                const apr = teamData.actuals[months[0]] || 0;
+                const may = teamData.actuals[months[1]] || 0;
+                const junActual = teamData.actuals[curMonth] || 0;
+                const dailyAvg  = daysIntoJun > 0 ? junActual / daysIntoJun : 0;
+                const junProj   = junActual + dailyAvg * daysLeftJun;
+                return Math.round(apr + may + junProj);
+            }
+
+            const usProj  = projectTeam(us);
+            const glProj  = projectTeam(gl);
+            const totProj = usProj + glProj;
 
             const fPct = (a, b) => b ? ((a / b) * 100).toFixed(1) + '%' : '—';
+
+            const pProjVsOutlook = pct(totProj, totOutlook);
+            const pProjVsTarget  = pct(totProj, totTarget);
 
             document.getElementById('supplyMergedView').innerHTML = `
                 <div class="supply-kpis">
@@ -989,11 +1009,11 @@
                         <div class="supply-kpi-pct">${qk} combined</div>
                     </div>
                     <div class="supply-kpi actual">
-                        <div class="supply-kpi-label">Actuals</div>
-                        <div class="supply-kpi-value">${formatM(totActual)}</div>
+                        <div class="supply-kpi-label">Projected</div>
+                        <div class="supply-kpi-value">${formatM(totProj)}</div>
                         <div class="supply-kpi-pct">
-                            ${pVsOutlook !== null ? pVsOutlook + '% of outlook' : ''}
-                            ${pVsTarget  !== null ? ' · ' + pVsTarget + '% of target' : ''}
+                            ${pProjVsOutlook !== null ? pProjVsOutlook + '% of outlook' : ''}
+                            ${pProjVsTarget  !== null ? ' · ' + pProjVsTarget + '% of target' : ''}
                         </div>
                     </div>
                 </div>
@@ -1003,6 +1023,7 @@
                         <span>Outlook</span>
                         <span>Target</span>
                         <span>Actuals</span>
+                        <span>Projected</span>
                         <span>vs Outlook</span>
                         <span>vs Target</span>
                     </div>
@@ -1011,24 +1032,27 @@
                         <span class="cell">${formatM(usOutlook)}</span>
                         <span class="cell">${formatM(usTarget)}</span>
                         <span class="cell">${formatM(usActual)}</span>
-                        <span class="cell">${fPct(usActual, usOutlook)}</span>
-                        <span class="cell">${fPct(usActual, usTarget)}</span>
+                        <span class="cell">${formatM(usProj)}</span>
+                        <span class="cell">${fPct(usProj, usOutlook)}</span>
+                        <span class="cell">${fPct(usProj, usTarget)}</span>
                     </div>
                     <div class="supply-table-row">
                         <span class="row-label"><span class="dot dot-global"></span>Supply Global</span>
                         <span class="cell">${formatM(glOutlook)}</span>
                         <span class="cell">${formatM(glTarget)}</span>
                         <span class="cell">${formatM(glActual)}</span>
-                        <span class="cell">${fPct(glActual, glOutlook)}</span>
-                        <span class="cell">${fPct(glActual, glTarget)}</span>
+                        <span class="cell">${formatM(glProj)}</span>
+                        <span class="cell">${fPct(glProj, glOutlook)}</span>
+                        <span class="cell">${fPct(glProj, glTarget)}</span>
                     </div>
                     <div class="supply-table-row total-row">
                         <span class="row-label"><span class="dot dot-total"></span>Combined</span>
                         <span class="cell">${formatM(totOutlook)}</span>
                         <span class="cell">${formatM(totTarget)}</span>
                         <span class="cell">${formatM(totActual)}</span>
-                        <span class="cell">${fPct(totActual, totOutlook)}</span>
-                        <span class="cell">${fPct(totActual, totTarget)}</span>
+                        <span class="cell">${formatM(totProj)}</span>
+                        <span class="cell">${fPct(totProj, totOutlook)}</span>
+                        <span class="cell">${fPct(totProj, totTarget)}</span>
                     </div>
                 </div>
             `;
