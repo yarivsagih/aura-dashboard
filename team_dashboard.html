@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Team Performance</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg:            #F0F2F8;
+            --surface:       #FFFFFF;
+            --border:        #E2E6F0;
+            --navy:          #1C2333;
+            --navy-light:    #252F45;
+            --purple:        #5C3DE4;
+            --purple-mid:    #7C5CFC;
+            --purple-light:  #EEE9FF;
+            --blue:          #2563EB;
+            --green:         #0D9B72;
+            --green-light:   #D1FAF0;
+            --orange:        #D97706;
+            --orange-light:  #FEF3C7;
+            --text:          #1A1F36;
+            --text-muted:    #64748B;
+            --text-dim:      #A0AABF;
+            --shadow-sm:     0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
+            --shadow:        0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+            --radius:        10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* ── Site header ── */
+        .site-header {
+            background: var(--navy);
+            padding: 0 32px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-mark {
+            width: 30px; height: 30px;
+            border-radius: 7px;
+            background: linear-gradient(135deg, var(--purple) 0%, #8B5CF6 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 15px; color: white;
+            letter-spacing: -1px;
+            flex-shrink: 0;
+        }
+
+        .brand-text h1 {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.2px;
+            line-height: 1.2;
+        }
+
+        .brand-text .sub {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .quarter-selector {
+            padding: 6px 12px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.08);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            outline: none;
+        }
+        .quarter-selector option { background: #1C2333; }
+
+        .btn {
+            padding: 7px 14px;
+            font-size: 13px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--purple);
+            color: white;
+        }
+        .btn-primary:hover { background: #4A2EC4; }
+        .btn-ghost {
+            background: rgba(255,255,255,0.09);
+            color: rgba(255,255,255,0.85);
+            border: 1px solid rgba(255,255,255,0.14);
+        }
+        .btn-ghost:hover { background: rgba(255,255,255,0.16); }
+
+        /* ── KPI strip ── */
+        .kpi-strip {
+            background: var(--navy-light);
+            padding: 16px 32px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .kpi-card {
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.2s;
+        }
+        .kpi-card:hover { background: rgba(255,255,255,0.08); }
+
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 10px 10px 0 0;
+        }
+        .kpi-card.outlook::after  { background: linear-gradient(90deg, #7C5CFC, #A78BFA); }
+        .kpi-card.target::after   { background: linear-gradient(90deg, #2563EB, #60A5FA); }
+        .kpi-card.proj::after     { background: linear-gradient(90deg, #0D9B72, #34D399); }
+        .kpi-card.proj.below::after { background: linear-gradient(90deg, #D97706, #FCD34D); }
+
+        .kpi-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 7px;
+        }
+
+        .kpi-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.5px;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .kpi-meta {
+            font-size: 11px;
+            color: rgba(255,255,255,0.38);
+        }
+
+        .kpi-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .kpi-badge.green  { background: rgba(13,155,114,0.22); color: #6EE7C7; }
+        .kpi-badge.orange { background: rgba(217,119,6,0.22);  color: #FCD34D; }
+        .kpi-badge.red    { background: rgba(220,38,38,0.22);  color: #FCA5A5; }
+
+        /* ── Page body ── */
+        .page-body {
+            padding: 24px 32px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .alert {
+            background: var(--orange-light);
+            border-left: 3px solid var(--orange);
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            margin-bottom: 18px;
+            color: #92400E;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .alert.success {
+            background: var(--green-light);
+            border-left-color: var(--green);
+            color: #065F46;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 22px 24px;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.1px;
+        }
+
+        .card-chip {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--purple);
+            background: var(--purple-light);
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 260px;
+        }
+
+        /* ── Supply merged tile ── */
+        .supply-kpis {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .supply-kpi {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            text-align: center;
+            background: var(--bg);
+        }
+
+        .supply-kpi-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .supply-kpi-value {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+        }
+        .supply-kpi.outlook .supply-kpi-value { color: #6D28D9; }
+        .supply-kpi.target  .supply-kpi-value { color: #1D4ED8; }
+        .supply-kpi.actual  .supply-kpi-value { color: var(--green); }
+
+        .supply-kpi-pct {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ── Shared breakdown table (Supply + Demand) ── */
+        .supply-table {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        .supply-table-head,
+        .supply-table-row {
+            display: grid;
+            grid-template-columns: 110px repeat(3, 1fr);
+            padding: 8px 12px;
+            align-items: center;
+        }
+
+        /* Demand table has 4 data cols (Target / Actuals / Projected / % vs Target) */
+        .demand-table .supply-table-head,
+        .demand-table .supply-table-row {
+            grid-template-columns: 100px repeat(4, 1fr);
+        }
+
+        .supply-table-head {
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--text-muted);
+        }
+
+        .supply-table-row {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .supply-table-row:last-child { border-bottom: none; }
+        .supply-table-row:hover:not(.total-row) { background: #FAFBFF; }
+
+        .supply-table-row.total-row {
+            background: #F5F3FF;
+            font-weight: 700;
+        }
+
+        .row-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot-us     { background: #7C5CFC; }
+        .dot-global { background: #0D9B72; }
+        .dot-total  { background: var(--navy); }
+
+        .cell {
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+        }
+        .total-row .cell { color: var(--text); }
+
+        /* ── Modal ── */
+        .modal {
+            display: none; position: fixed; z-index: 200;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            animation: fadeIn 0.2s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-content {
+            background: white; margin: 5% auto; padding: 32px;
+            border-radius: 14px; width: 90%; max-width: 760px;
+            max-height: 82vh; overflow-y: auto;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+            animation: slideIn 0.22s;
+        }
+        @keyframes slideIn { from { transform: translateY(-24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px;
+        }
+        .modal-header h2 { font-size: 18px; font-weight: 700; color: var(--text); }
+        .close { color: var(--text-dim); font-size: 26px; cursor: pointer; line-height: 1; }
+        .close:hover { color: var(--text); }
+
+        .team-section {
+            background: var(--bg); padding: 16px; border-radius: 8px;
+            margin-bottom: 14px; border: 1px solid var(--border);
+        }
+        .team-section h3 { color: var(--purple); margin-bottom: 12px; font-size: 14px; font-weight: 700; }
+
+        .month-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--text); font-size: 12px; }
+        .form-group input {
+            width: 100%; padding: 9px; border: 1.5px solid var(--border);
+            border-radius: 6px; font-size: 13px; transition: border-color 0.2s;
+        }
+        .form-group input:focus { outline: none; border-color: var(--purple); }
+
+        .supply-notice {
+            background: #EFF6FF; border-left: 3px solid #3B82F6;
+            padding: 7px 10px; margin-bottom: 10px; border-radius: 4px;
+            color: #1E40AF; font-size: 11px; font-weight: 500;
+        }
+
+        @media (max-width: 900px) {
+            .kpi-strip { padding: 14px 16px; }
+            .page-body { padding: 16px; }
+            .grid { grid-template-columns: 1fr; }
+            .site-header { padding: 0 16px; }
+        }
+        @media (max-width: 640px) {
+            .kpi-strip { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Header ── -->
+    <header class="site-header">
+        <div class="header-brand">
+            <div class="brand-mark">Aα</div>
+            <div class="brand-text">
+                <h1>Aura Team Performance</h1>
+                <span class="sub" id="lastUpdated">Loading…</span>
+            </div>
+        </div>
+        <div class="header-controls">
+            <select class="quarter-selector" id="quarterSelector">
+                <option value="Q2-2026">Q2 2026 (Apr–Jun)</option>
+                <option value="Q3-2026">Q3 2026 (Jul–Sep)</option>
+                <option value="Q4-2026">Q4 2026 (Oct–Dec)</option>
+                <option value="Q1-2027">Q1 2027 (Jan–Mar)</option>
+            </select>
+            <button class="btn btn-ghost" onclick="openTargetsModal()">Set Targets</button>
+            <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+        </div>
+    </header>
+
+    <!-- ── KPI Strip ── -->
+    <div class="kpi-strip" id="kpiStrip">
+        <div class="kpi-card outlook">
+            <div class="kpi-label">Outlook</div>
+            <div class="kpi-value">—</div>
+            <div class="kpi-meta">Aura Apps</div>
+        </div>
+        <div class="kpi-card target">
+            <div class="kpi-label">Target</div>
+            <div class="kpi-value">—</div>
+            <div class="kpi-meta">Aura Apps</div>
+        </div>
+        <div class="kpi-card proj">
+            <div class="kpi-label">Projected</div>
+            <div class="kpi-value">—</div>
+            <div class="kpi-meta">Aura Apps · Run Rate</div>
+        </div>
+    </div>
+
+    <!-- ── Page body ── -->
+    <div class="page-body">
+        <div id="alertContainer"></div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Overall Performance</span>
+                    <span class="card-chip" id="overallBadge">Q2 2026</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="overallChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Monthly Breakdown</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Aura Apps</span>
+                    <span class="card-chip">Gross Profit</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="auraAppsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Demand</span>
+                    <span class="card-chip">US + TLV · Quarterly</span>
+                </div>
+                <div id="demandMergedView"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Supply</span>
+                    <span class="card-chip">US + Global · Quarterly</span>
+                </div>
+                <div id="supplyMergedView"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Targets Modal ── -->
+    <div id="targetsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Set Quarterly Targets</h2>
+                <span class="close" onclick="closeTargetsModal()">&times;</span>
+            </div>
+            <form id="targetsForm">
+                <div id="teamsContainer"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;margin-top:14px;">Save Targets</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let charts = {};
+
+        const COLORS = {
+            actual:  { fill: 'rgba(92,61,228,0.75)',  line: '#5C3DE4' },
+            target:  { fill: 'rgba(37,99,235,0.70)',  line: '#2563EB' },
+            outlook: { fill: 'rgba(217,119,6,0.70)',  line: '#D97706' },
+            runRate: { fill: 'rgba(13,155,114,0.75)', line: '#0D9B72' },
+        };
+
+        function formatM(v) {
+            if (!v && v !== 0) return '—';
+            return '$' + (v / 1_000_000).toFixed(2) + 'M';
+        }
+
+        function pct(a, b) {
+            if (!b) return null;
+            return ((a / b) * 100).toFixed(1);
+        }
+
+        function isSupply(name) { return name.startsWith('Supply'); }
+
+        async function loadData() {
+            try {
+                const r = await fetch('dashboard_data.json?t=' + Date.now());
+                currentData = await r.json();
+                document.getElementById('quarterSelector').value = currentData.currentQuarter;
+                updateDashboard();
+                checkTargetsSet();
+            } catch (e) {
+                showAlert('Error loading data: ' + e.message);
+            }
+        }
+
+        function updateDashboard() {
+            const quarter = document.getElementById('quarterSelector').value;
+            const qd = currentData.quarters[quarter];
+            if (!qd) { showAlert('No data for selected quarter'); return; }
+
+            const d = qd.lastUpdated ? new Date(qd.lastUpdated) : null;
+            document.getElementById('lastUpdated').textContent =
+                d ? 'Updated ' + d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : 'No update yet';
+
+            document.getElementById('overallBadge').textContent = quarter.replace('-', ' ');
+
+            updateKpiStrip(qd, quarter);
+            createOverallChart(qd, quarter);
+            createMonthlyChart(qd, quarter);
+            createTeamCharts(qd, quarter);
+            updateDemandMerged(qd, quarter);
+            updateSupplyMerged(qd, quarter);
+        }
+
+        /* ── KPI strip ── */
+        function updateKpiStrip(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const aura = qd.teams['Aura apps'];
+            const outlook  = aura.outlook  ? (aura.outlook[qk]  || 0) : 0;
+            const target   = aura.targets  ? (aura.targets[qk]  || 0) : 0;
+            const projected = aura.runRate ? (aura.runRate[qk]  || 0) : 0;
+
+            const p = pct(projected, target);
+            const aboveTarget = p !== null && parseFloat(p) >= 100;
+            const badgeCls = p === null ? '' : (aboveTarget ? 'green' : 'orange');
+            const badgeTxt = p !== null ? p + '% of target' : '';
+
+            document.getElementById('kpiStrip').innerHTML = `
+                <div class="kpi-card outlook">
+                    <div class="kpi-label">Outlook</div>
+                    <div class="kpi-value">${formatM(outlook)}</div>
+                    <div class="kpi-meta">Aura Apps · ${qk}</div>
+                </div>
+                <div class="kpi-card target">
+                    <div class="kpi-label">Target</div>
+                    <div class="kpi-value">${formatM(target)}</div>
+                    <div class="kpi-meta">Aura Apps · ${qk}</div>
+                </div>
+                <div class="kpi-card proj${aboveTarget ? '' : ' below'}">
+                    <div class="kpi-label">Projected</div>
+                    <div class="kpi-value">${formatM(projected)}</div>
+                    <div class="kpi-meta">
+                        ${badgeTxt ? `<span class="kpi-badge ${badgeCls}">${badgeTxt}</span>` : 'Aura Apps · Run Rate'}
+                        &nbsp;Aura Apps Run Rate
+                    </div>
+                </div>
+            `;
+        }
+
+        /* ── Overall bar chart ── */
+        function createOverallChart(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const teams = Object.keys(qd.teams);
+
+            const actuals  = teams.map(t => qd.teams[t].actuals[qk] || 0);
+            const targets  = teams.map(t => qd.teams[t].targets ? (qd.teams[t].targets[qk] || 0) : 0);
+            const outlooks = teams.map(t => qd.teams[t].outlook  ? (qd.teams[t].outlook[qk]  || null) : null);
+            const runRates = teams.map(t => qd.teams[t].runRate  ? (qd.teams[t].runRate[qk]  || null) : null);
+
+            if (charts.overall) charts.overall.destroy();
+            const datasets = [
+                { label: 'Actual',   data: actuals,  backgroundColor: COLORS.actual.fill,  borderColor: COLORS.actual.line,  borderWidth: 1.5, borderRadius: 4 },
+                { label: 'Target',   data: targets,  backgroundColor: COLORS.target.fill,  borderColor: COLORS.target.line,  borderWidth: 1.5, borderRadius: 4 },
+            ];
+            if (outlooks.some(o => o !== null)) {
+                datasets.push({ label: 'Outlook',  data: outlooks,  backgroundColor: COLORS.outlook.fill,  borderColor: COLORS.outlook.line,  borderWidth: 1.5, borderRadius: 4 });
+            }
+            if (runRates.some(r => r !== null)) {
+                datasets.push({ label: 'Run Rate', data: runRates,  backgroundColor: COLORS.runRate.fill,  borderColor: COLORS.runRate.line,  borderWidth: 1.5, borderRadius: 4 });
+            }
+
+            charts.overall = new Chart(document.getElementById('overallChart'), {
+                type: 'bar',
+                data: { labels: teams, datasets },
+                options: chartOptions(),
+            });
+        }
+
+        /* ── Monthly line chart ── */
+        function createMonthlyChart(qd, quarter) {
+            const months = monthsFor(quarter);
+            const teams  = Object.keys(qd.teams);
+            const palette = ['#5C3DE4','#0D9B72','#2563EB','#D97706','#EC4899'];
+
+            const datasets = teams.map((t, i) => ({
+                label: t,
+                data: months.map(m => qd.teams[t].actuals[m] || 0),
+                borderColor: palette[i % palette.length],
+                backgroundColor: palette[i % palette.length] + '18',
+                borderWidth: 2,
+                pointRadius: 3,
+                fill: false,
+                tension: 0.3,
+            }));
+
+            function monthlyAfterLabel(ctx) {
+                const teamName = ctx.dataset.label;
+                const month    = months[ctx.dataIndex];
+                const v  = ctx.parsed.y;
+                const td = qd.teams[teamName];
+                if (!td || !v) return;
+                const lines = [];
+                const t = td.targets && td.targets[month];
+                const o = td.outlook && td.outlook[month];
+                if (t) lines.push('vs Target:  ' + ((v / t) * 100).toFixed(1) + '%');
+                if (o) lines.push('vs Outlook: ' + ((v / o) * 100).toFixed(1) + '%');
+                return lines;
+            }
+
+            if (charts.monthly) charts.monthly.destroy();
+            charts.monthly = new Chart(document.getElementById('monthlyChart'), {
+                type: 'line',
+                data: { labels: months, datasets },
+                options: chartOptions(monthlyAfterLabel),
+            });
+        }
+
+        /* ── Per-team bar charts (Aura Apps only now; Demand is merged tile) ── */
+        function createTeamCharts(qd, quarter) {
+            const months = monthsFor(quarter);
+            const defs = [
+                { name: 'Aura apps', id: 'auraAppsChart' },
+            ];
+
+            defs.forEach(({ name, id }) => {
+                const td = qd.teams[name];
+                const actuals  = months.map(m => td.actuals[m] || 0);
+                const targets  = months.map(m => td.targets ? (td.targets[m] || 0) : 0);
+                const datasets = [
+                    { label: 'Actual', data: actuals, backgroundColor: COLORS.actual.fill, borderColor: COLORS.actual.line, borderWidth: 1.5, borderRadius: 4 },
+                    { label: 'Target', data: targets, backgroundColor: COLORS.target.fill, borderColor: COLORS.target.line, borderWidth: 1.5, borderRadius: 4 },
+                ];
+
+                if (name === 'Aura apps') {
+                    if (td.outlook) {
+                        datasets.push({ label: 'Outlook', data: months.map(m => td.outlook[m] || 0), backgroundColor: COLORS.outlook.fill, borderColor: COLORS.outlook.line, borderWidth: 1.5, borderRadius: 4 });
+                    }
+                    if (td.runRate) {
+                        datasets.push({ label: 'Run Rate', data: months.map(m => td.runRate[m] || 0), backgroundColor: COLORS.runRate.fill, borderColor: COLORS.runRate.line, borderWidth: 1.5, borderRadius: 4 });
+                    }
+                }
+
+                if (charts[id]) charts[id].destroy();
+                charts[id] = new Chart(document.getElementById(id), {
+                    type: 'bar',
+                    data: { labels: months, datasets },
+                    options: chartOptions(),
+                });
+            });
+        }
+
+        /* ── Merged demand tile ── */
+        function updateDemandMerged(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const us  = qd.teams['Demand US'];
+            const tlv = qd.teams['Demand TLV'];
+
+            const usTarget  = us.targets  ? (us.targets[qk]  || 0) : 0;
+            const tlvTarget = tlv.targets ? (tlv.targets[qk] || 0) : 0;
+            const usActual  = us.actuals[qk]  || 0;
+            const tlvActual = tlv.actuals[qk] || 0;
+            const usProj    = us.runRate  ? (us.runRate[qk]  || 0) : usActual;
+            const tlvProj   = tlv.runRate ? (tlv.runRate[qk] || 0) : tlvActual;
+
+            const totTarget = usTarget  + tlvTarget;
+            const totActual = usActual  + tlvActual;
+            const totProj   = usProj    + tlvProj;
+
+            const pctUs  = usTarget  > 0 ? (usProj  / usTarget  * 100).toFixed(1) + '%' : '—';
+            const pctTlv = tlvTarget > 0 ? (tlvProj / tlvTarget * 100).toFixed(1) + '%' : '—';
+            const pctTot = totTarget > 0 ? (totProj / totTarget * 100).toFixed(1) + '%' : '—';
+
+            document.getElementById('demandMergedView').innerHTML = `
+                <div class="supply-kpis">
+                    <div class="supply-kpi target">
+                        <div class="supply-kpi-label">Target</div>
+                        <div class="supply-kpi-value">${formatM(totTarget)}</div>
+                        <div class="supply-kpi-pct">${qk} combined</div>
+                    </div>
+                    <div class="supply-kpi actual">
+                        <div class="supply-kpi-label">Actuals</div>
+                        <div class="supply-kpi-value">${formatM(totActual)}</div>
+                        <div class="supply-kpi-pct">${qk} combined</div>
+                    </div>
+                    <div class="supply-kpi outlook">
+                        <div class="supply-kpi-label">Projected</div>
+                        <div class="supply-kpi-value">${formatM(totProj)}</div>
+                        <div class="supply-kpi-pct">${pctTot} of target</div>
+                    </div>
+                </div>
+                <div class="supply-table demand-table">
+                    <div class="supply-table-head">
+                        <span>Team</span>
+                        <span>Target</span>
+                        <span>Actuals</span>
+                        <span>Projected</span>
+                        <span>vs Target</span>
+                    </div>
+                    <div class="supply-table-row">
+                        <span class="row-label"><span class="dot dot-us"></span>Demand US</span>
+                        <span class="cell">${formatM(usTarget)}</span>
+                        <span class="cell">${formatM(usActual)}</span>
+                        <span class="cell">${formatM(usProj)}</span>
+                        <span class="cell">${pctUs}</span>
+                    </div>
+                    <div class="supply-table-row">
+                        <span class="row-label"><span class="dot dot-global"></span>Demand TLV</span>
+                        <span class="cell">${formatM(tlvTarget)}</span>
+                        <span class="cell">${formatM(tlvActual)}</span>
+                        <span class="cell">${formatM(tlvProj)}</span>
+                        <span class="cell">${pctTlv}</span>
+                    </div>
+                    <div class="supply-table-row total-row">
+                        <span class="row-label"><span class="dot dot-total"></span>Combined</span>
+                        <span class="cell">${formatM(totTarget)}</span>
+                        <span class="cell">${formatM(totActual)}</span>
+                        <span class="cell">${formatM(totProj)}</span>
+                        <span class="cell">${pctTot}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* ── Merged supply tile ── */
+        function updateSupplyMerged(qd, quarter) {
+            const qk = quarter.split('-')[0];
+            const us  = qd.teams['Supply US'];
+            const gl  = qd.teams['Supply Global'];
+
+            const usOutlook  = us.outlook ? (us.outlook[qk]  || 0) : 0;
+            const usTarget   = us.targets ? (us.targets[qk]  || 0) : 0;
+            const usActual   = us.actuals[qk] || 0;
+
+            const glOutlook  = gl.outlook ? (gl.outlook[qk]  || 0) : 0;
+            const glTarget   = gl.targets ? (gl.targets[qk]  || 0) : 0;
+            const glActual   = gl.actuals[qk] || 0;
+
+            const totOutlook = usOutlook + glOutlook;
+            const totTarget  = usTarget  + glTarget;
+            const totActual  = usActual  + glActual;
+
+            const p = pct(totActual, totTarget);
+            const pctStr = p !== null ? p + '% of target' : '';
+
+            document.getElementById('supplyMergedView').innerHTML = `
+                <div class="supply-kpis">
+                    <div class="supply-kpi outlook">
+                        <div class="supply-kpi-label">Outlook</div>
+                        <div class="supply-kpi-value">${formatM(totOutlook)}</div>
+                        <div class="supply-kpi-pct">${qk} combined</div>
+                    </div>
+                    <div class="supply-kpi target">
+                        <div class="supply-kpi-label">Target</div>
+                        <div class="supply-kpi-value">${formatM(totTarget)}</div>
+                        <div class="supply-kpi-pct">${qk} combined</div>
+                    </div>
+                    <div class="supply-kpi actual">
+                        <div class="supply-kpi-label">Actuals</div>
+                        <div class="supply-kpi-value">${formatM(totActual)}</div>
+                        <div class="supply-kpi-pct">${pctStr}</div>
+                    </div>
+                </div>
+                <div class="supply-table">
+                    <div class="supply-table-head">
+                        <span>Team</span>
+                        <span>Outlook</span>
+                        <span>Target</span>
+                        <span>Actuals</span>
+                    </div>
+                    <div class="supply-table-row">
+                        <span class="row-label"><span class="dot dot-us"></span>Supply US</span>
+                        <span class="cell">${formatM(usOutlook)}</span>
+                        <span class="cell">${formatM(usTarget)}</span>
+                        <span class="cell">${formatM(usActual)}</span>
+                    </div>
+                    <div class="supply-table-row">
+                        <span class="row-label"><span class="dot dot-global"></span>Supply Global</span>
+                        <span class="cell">${formatM(glOutlook)}</span>
+                        <span class="cell">${formatM(glTarget)}</span>
+                        <span class="cell">${formatM(glActual)}</span>
+                    </div>
+                    <div class="supply-table-row total-row">
+                        <span class="row-label"><span class="dot dot-total"></span>Combined</span>
+                        <span class="cell">${formatM(totOutlook)}</span>
+                        <span class="cell">${formatM(totTarget)}</span>
+                        <span class="cell">${formatM(totActual)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* ── Shared chart options ── */
+        function defaultAfterLabel(ctx) {
+            const label = ctx.dataset.label;
+            if (label !== 'Actual' && label !== 'Run Rate') return;
+            const v   = ctx.parsed.y;
+            const idx = ctx.dataIndex;
+            const ds  = ctx.chart.data.datasets;
+            const lines = [];
+            const targetDs  = ds.find(d => d.label === 'Target');
+            const outlookDs = ds.find(d => d.label === 'Outlook');
+            if (targetDs)  { const t = targetDs.data[idx];  if (t) lines.push('vs Target:  ' + ((v / t) * 100).toFixed(1) + '%'); }
+            if (outlookDs) { const o = outlookDs.data[idx]; if (o) lines.push('vs Outlook: ' + ((v / o) * 100).toFixed(1) + '%'); }
+            return lines;
+        }
+
+        function chartOptions(afterLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { font: { size: 12, weight: '600' }, boxWidth: 12, padding: 14 },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.label + ': ' + formatM(ctx.parsed.y),
+                            afterLabel: afterLabel || defaultAfterLabel,
+                        },
+                    },
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 12 } } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F1F3F9' },
+                        ticks: { font: { size: 11 }, callback: v => formatM(v) },
+                    },
+                },
+            };
+        }
+
+        function monthsFor(quarter) {
+            return { Q1:['Jan','Feb','Mar'], Q2:['Apr','May','Jun'], Q3:['Jul','Aug','Sep'], Q4:['Oct','Nov','Dec'] }[quarter.split('-')[0]];
+        }
+
+        /* ── Targets modal ── */
+        function openTargetsModal() {
+            const quarter = document.getElementById('quarterSelector').value;
+            const qd = currentData.quarters[quarter];
+            const months = monthsFor(quarter);
+            const qk = quarter.split('-')[0];
+
+            const html = Object.keys(qd.teams).map(team => {
+                const td = qd.teams[team];
+                const sup = isSupply(team);
+                let inputs = '<div class="month-inputs">';
+
+                months.forEach(m => {
+                    if (sup) {
+                        inputs += `
+                            <div class="form-group">
+                                <label>${m} Outlook</label>
+                                <input type="number" id="${team}-outlook-${m}" value="${td.outlook ? (td.outlook[m] || '') : ''}" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label>${m} Target</label>
+                                <input type="number" id="${team}-target-${m}" value="${td.targets ? (td.targets[m] || '') : ''}" placeholder="0">
+                            </div>`;
+                    } else {
+                        inputs += `
+                            <div class="form-group">
+                                <label>${m}</label>
+                                <input type="number" id="${team}-${m}" value="${td.targets ? (td.targets[m] || '') : ''}" placeholder="0">
+                            </div>`;
+                    }
+                });
+
+                if (sup) {
+                    inputs += `
+                        <div class="form-group">
+                            <label>${qk} Outlook</label>
+                            <input type="number" id="${team}-outlook-${qk}" value="${td.outlook ? (td.outlook[qk] || '') : ''}" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label>${qk} Target</label>
+                            <input type="number" id="${team}-target-${qk}" value="${td.targets ? (td.targets[qk] || '') : ''}" placeholder="0">
+                        </div>`;
+                } else {
+                    inputs += `
+                        <div class="form-group">
+                            <label>${qk} Total</label>
+                            <input type="number" id="${team}-${qk}" value="${td.targets ? (td.targets[qk] || '') : ''}" placeholder="0">
+                        </div>`;
+                }
+
+                inputs += '</div>';
+
+                return `<div class="team-section">
+                    <h3>${team}</h3>
+                    ${sup ? '<div class="supply-notice">Supply teams have both Outlook and Target values</div>' : ''}
+                    ${inputs}
+                </div>`;
+            }).join('');
+
+            document.getElementById('teamsContainer').innerHTML = html;
+            document.getElementById('targetsModal').style.display = 'block';
+        }
+
+        function closeTargetsModal() {
+            document.getElementById('targetsModal').style.display = 'none';
+        }
+
+        document.getElementById('targetsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const quarter = document.getElementById('quarterSelector').value;
+            const qd = currentData.quarters[quarter];
+            const months = monthsFor(quarter);
+            const qk = quarter.split('-')[0];
+
+            Object.keys(qd.teams).forEach(team => {
+                const sup = isSupply(team);
+                if (sup) {
+                    months.forEach(m => {
+                        qd.teams[team].outlook[m] = parseFloat(document.getElementById(`${team}-outlook-${m}`).value) || null;
+                        qd.teams[team].targets[m] = parseFloat(document.getElementById(`${team}-target-${m}`).value) || null;
+                    });
+                    qd.teams[team].outlook[qk] = parseFloat(document.getElementById(`${team}-outlook-${qk}`).value) || null;
+                    qd.teams[team].targets[qk] = parseFloat(document.getElementById(`${team}-target-${qk}`).value) || null;
+                } else {
+                    months.forEach(m => {
+                        qd.teams[team].targets[m] = parseFloat(document.getElementById(`${team}-${m}`).value) || null;
+                    });
+                    qd.teams[team].targets[qk] = parseFloat(document.getElementById(`${team}-${qk}`).value) || null;
+                }
+            });
+
+            qd.targetsSet = true;
+            qd.lastUpdated = new Date().toISOString();
+
+            try {
+                const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'dashboard_data.json'; a.click();
+                URL.revokeObjectURL(url);
+                showAlert('✓ Targets saved — replace dashboard_data.json with the downloaded file', 'success');
+                closeTargetsModal();
+                updateDashboard();
+            } catch (err) {
+                showAlert('Error: ' + err.message);
+            }
+        });
+
+        function showAlert(msg, type = 'error') {
+            const c = document.getElementById('alertContainer');
+            c.innerHTML = `<div class="alert${type === 'success' ? ' success' : ''}">${msg}</div>`;
+            if (type === 'success') setTimeout(() => c.innerHTML = '', 5000);
+        }
+
+        function checkTargetsSet() {
+            const q = document.getElementById('quarterSelector').value;
+            const qd = currentData.quarters[q];
+            if (qd && !qd.targetsSet) showAlert('⚠️ Targets not set for this quarter — click Set Targets to configure.');
+        }
+
+        document.getElementById('quarterSelector').addEventListener('change', updateDashboard);
+        window.onclick = e => { if (e.target === document.getElementById('targetsModal')) closeTargetsModal(); };
+
+        loadData();
+    </script>
+</body>
+</html>
