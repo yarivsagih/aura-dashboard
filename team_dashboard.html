@@ -314,10 +314,16 @@
             align-items: center;
         }
 
-        /* Demand table has 4 data cols (Target / Actuals / Projected / % vs Target) */
+        /* Demand table: 4 data cols */
         .demand-table .supply-table-head,
         .demand-table .supply-table-row {
             grid-template-columns: 100px repeat(4, 1fr);
+        }
+
+        /* Supply breakdown table: Outlook / Target / Actuals / vs Outlook / vs Target */
+        .supply-breakdown-table .supply-table-head,
+        .supply-breakdown-table .supply-table-row {
+            grid-template-columns: 100px repeat(3, 1fr) 72px 72px;
         }
 
         .supply-table-head {
@@ -638,10 +644,12 @@
             const target   = aura.targets  ? (aura.targets[qk]  || 0) : 0;
             const projected = aura.runRate ? (aura.runRate[qk]  || 0) : 0;
 
-            const p = pct(projected, target);
-            const aboveTarget = p !== null && parseFloat(p) >= 100;
-            const badgeCls = p === null ? '' : (aboveTarget ? 'green' : 'orange');
-            const badgeTxt = p !== null ? p + '% of target' : '';
+            const p  = pct(projected, target);
+            const po = pct(projected, outlook);
+            const aboveTarget  = p  !== null && parseFloat(p)  >= 100;
+            const aboveOutlook = po !== null && parseFloat(po) >= 100;
+            const tBadgeCls = p  === null ? '' : (aboveTarget  ? 'green' : 'orange');
+            const oBadgeCls = po === null ? '' : (aboveOutlook ? 'green' : 'orange');
 
             document.getElementById('kpiStrip').innerHTML = `
                 <div class="kpi-card outlook">
@@ -658,7 +666,8 @@
                     <div class="kpi-label">Projected</div>
                     <div class="kpi-value">${formatM(projected)}</div>
                     <div class="kpi-meta">
-                        ${badgeTxt ? `<span class="kpi-badge ${badgeCls}">${badgeTxt}</span>` : 'Aura Apps · Run Rate'}
+                        ${p  !== null ? `<span class="kpi-badge ${tBadgeCls}">${p}% of target</span>` : ''}
+                        ${po !== null ? `<span class="kpi-badge ${oBadgeCls}">${po}% of outlook</span>` : ''}
                         &nbsp;Aura Apps Run Rate
                     </div>
                 </div>
@@ -962,8 +971,10 @@
             const totTarget  = usTarget  + glTarget;
             const totActual  = usActual  + glActual;
 
-            const p = pct(totActual, totTarget);
-            const pctStr = p !== null ? p + '% of target' : '';
+            const pVsTarget  = pct(totActual, totTarget);
+            const pVsOutlook = pct(totActual, totOutlook);
+
+            const fPct = (a, b) => b ? ((a / b) * 100).toFixed(1) + '%' : '—';
 
             document.getElementById('supplyMergedView').innerHTML = `
                 <div class="supply-kpis">
@@ -980,33 +991,44 @@
                     <div class="supply-kpi actual">
                         <div class="supply-kpi-label">Actuals</div>
                         <div class="supply-kpi-value">${formatM(totActual)}</div>
-                        <div class="supply-kpi-pct">${pctStr}</div>
+                        <div class="supply-kpi-pct">
+                            ${pVsOutlook !== null ? pVsOutlook + '% of outlook' : ''}
+                            ${pVsTarget  !== null ? ' · ' + pVsTarget + '% of target' : ''}
+                        </div>
                     </div>
                 </div>
-                <div class="supply-table">
+                <div class="supply-table supply-breakdown-table">
                     <div class="supply-table-head">
                         <span>Team</span>
                         <span>Outlook</span>
                         <span>Target</span>
                         <span>Actuals</span>
+                        <span>vs Outlook</span>
+                        <span>vs Target</span>
                     </div>
                     <div class="supply-table-row">
                         <span class="row-label"><span class="dot dot-us"></span>Supply US</span>
                         <span class="cell">${formatM(usOutlook)}</span>
                         <span class="cell">${formatM(usTarget)}</span>
                         <span class="cell">${formatM(usActual)}</span>
+                        <span class="cell">${fPct(usActual, usOutlook)}</span>
+                        <span class="cell">${fPct(usActual, usTarget)}</span>
                     </div>
                     <div class="supply-table-row">
                         <span class="row-label"><span class="dot dot-global"></span>Supply Global</span>
                         <span class="cell">${formatM(glOutlook)}</span>
                         <span class="cell">${formatM(glTarget)}</span>
                         <span class="cell">${formatM(glActual)}</span>
+                        <span class="cell">${fPct(glActual, glOutlook)}</span>
+                        <span class="cell">${fPct(glActual, glTarget)}</span>
                     </div>
                     <div class="supply-table-row total-row">
                         <span class="row-label"><span class="dot dot-total"></span>Combined</span>
                         <span class="cell">${formatM(totOutlook)}</span>
                         <span class="cell">${formatM(totTarget)}</span>
                         <span class="cell">${formatM(totActual)}</span>
+                        <span class="cell">${fPct(totActual, totOutlook)}</span>
+                        <span class="cell">${fPct(totActual, totTarget)}</span>
                     </div>
                 </div>
             `;
