@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aura Team Performance</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async></script>
     <style>
         :root {
             --bg:            #F0F2F8;
@@ -448,9 +449,65 @@
         .supply-bar { background: linear-gradient(180deg, #0D9B72, #7C5CFC); }
         .demand-bar { background: linear-gradient(180deg, #5C3DE4, #2563EB); }
         @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
+
+        /* ── Auth ── */
+        #mainContent { display: none; }
+        #loginOverlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--navy);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .login-card {
+            background: var(--navy-light);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 48px 40px;
+            text-align: center;
+            width: 360px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+        }
+        .login-brand { font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -1px; margin-bottom: 4px; }
+        .login-sub   { color: var(--text-dim); font-size: 13px; margin-bottom: 32px; }
+        .login-card h2 { color: #fff; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .login-card p  { color: var(--text-dim); font-size: 13px; margin-bottom: 28px; line-height: 1.5; }
+        #loginError { color: #F87171; font-size: 12px; margin-top: 12px; min-height: 16px; }
+        #googleSignInBtn { display: flex; justify-content: center; }
+        .user-chip {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px; padding: 4px 12px 4px 8px;
+            color: rgba(255,255,255,0.8); font-size: 12px; cursor: default;
+        }
+        .user-avatar {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: var(--purple); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; flex-shrink: 0;
+        }
+        .sign-out-btn {
+            background: none; border: none; color: var(--text-dim);
+            font-size: 11px; cursor: pointer; padding: 0 0 0 6px;
+            border-left: 1px solid rgba(255,255,255,0.15); margin-left: 4px;
+        }
+        .sign-out-btn:hover { color: #fff; }
     </style>
 </head>
 <body>
+
+    <!-- ── Login overlay ── -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <div class="login-brand">Aα</div>
+            <div class="login-sub">Aura Team Performance</div>
+            <h2>Sign in to continue</h2>
+            <p>Access is restricted to Unity employees.<br>Use your unity3d.com Google account.</p>
+            <div id="googleSignInBtn"></div>
+            <div id="loginError"></div>
+        </div>
+    </div>
+
+    <div id="mainContent">
 
     <!-- ── Header ── -->
     <header class="site-header">
@@ -470,6 +527,11 @@
             </select>
             <button class="btn btn-ghost" onclick="openTargetsModal()">Set Targets</button>
             <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+            <div class="user-chip" id="userChip" style="display:none">
+                <div class="user-avatar" id="userAvatar"></div>
+                <span id="userEmail"></span>
+                <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+            </div>
         </div>
     </header>
 
@@ -580,9 +642,11 @@
                 <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;margin-top:14px;">Save Targets</button>
             </form>
         </div>
-    </div>
+    </div><!-- /#mainContent -->
 
     <script>
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // replace after Google Cloud setup
+
         let currentData = null;
         let charts = {};
 
@@ -1224,7 +1288,74 @@
         document.getElementById('quarterSelector').addEventListener('change', updateDashboard);
         window.onclick = e => { if (e.target === document.getElementById('targetsModal')) closeTargetsModal(); };
 
-        loadData();
+        // ── Auth ──────────────────────────────────────────────────────────────
+
+        function initAuth() {
+            const raw = sessionStorage.getItem('aura_user');
+            if (raw) {
+                try {
+                    const { email, exp } = JSON.parse(raw);
+                    if (Date.now() < exp) { showDashboard(email); return; }
+                } catch(e) {}
+            }
+            showLoginOverlay();
+        }
+
+        function showLoginOverlay() {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+            // Wait for GSI library to load
+            const tryInit = () => {
+                if (typeof google === 'undefined') { setTimeout(tryInit, 100); return; }
+                google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: handleCredentialResponse,
+                    hd: 'unity3d.com'
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById('googleSignInBtn'),
+                    { theme: 'outline', size: 'large', text: 'signin_with', width: 280 }
+                );
+            };
+            tryInit();
+        }
+
+        function handleCredentialResponse(response) {
+            try {
+                const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+                if (!payload.email || !payload.email.endsWith('@unity3d.com')) {
+                    document.getElementById('loginError').textContent = 'Access restricted to unity3d.com accounts.';
+                    return;
+                }
+                sessionStorage.setItem('aura_user', JSON.stringify({
+                    email: payload.email,
+                    name:  payload.name || payload.email,
+                    exp:   Date.now() + 8 * 60 * 60 * 1000  // 8-hour session
+                }));
+                showDashboard(payload.email, payload.name);
+            } catch(e) {
+                document.getElementById('loginError').textContent = 'Sign-in failed. Please try again.';
+            }
+        }
+
+        function showDashboard(email, name) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            const initials = (name || email).split(/[\s.@]/)[0].slice(0,2).toUpperCase();
+            document.getElementById('userAvatar').textContent = initials;
+            document.getElementById('userEmail').textContent = email;
+            document.getElementById('userChip').style.display = 'flex';
+            loadData();
+        }
+
+        function signOut() {
+            sessionStorage.removeItem('aura_user');
+            if (typeof google !== 'undefined') google.accounts.id.disableAutoSelect();
+            document.getElementById('userChip').style.display = 'none';
+            showLoginOverlay();
+        }
+
+        initAuth();
     </script>
 </body>
 </html>
