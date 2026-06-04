@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aura Team Performance</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async></script>
     <style>
         :root {
             --bg:            #F0F2F8;
@@ -471,7 +470,20 @@
         .login-card h2 { color: #fff; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
         .login-card p  { color: var(--text-dim); font-size: 13px; margin-bottom: 28px; line-height: 1.5; }
         #loginError { color: #F87171; font-size: 12px; margin-top: 12px; min-height: 16px; }
-        #googleSignInBtn { display: flex; justify-content: center; }
+        .passcode-input {
+            width: 100%; padding: 11px 14px; font-size: 15px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; color: #fff; outline: none; text-align: center;
+            letter-spacing: 2px;
+        }
+        .passcode-input:focus { border-color: var(--purple-mid); }
+        .passcode-input::placeholder { letter-spacing: normal; color: var(--text-dim); }
+        .login-btn {
+            width: 100%; margin-top: 12px; padding: 11px;
+            background: var(--purple); border: none; border-radius: 8px;
+            color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .login-btn:hover { background: var(--purple-mid); }
         .user-chip {
             display: flex; align-items: center; gap: 8px;
             background: rgba(255,255,255,0.07);
@@ -500,9 +512,12 @@
         <div class="login-card">
             <div class="login-brand">Aα</div>
             <div class="login-sub">Aura Team Performance</div>
-            <h2>Sign in to continue</h2>
-            <p>Access is restricted to Unity employees.<br>Use your unity3d.com Google account.</p>
-            <div id="googleSignInBtn"></div>
+            <h2>Enter passcode</h2>
+            <p>This dashboard is for internal use only.</p>
+            <form onsubmit="submitPasscode(event)">
+                <input class="passcode-input" id="passcodeInput" type="password" placeholder="Passcode" autocomplete="off" autofocus>
+                <button class="login-btn" type="submit">Unlock</button>
+            </form>
             <div id="loginError"></div>
         </div>
     </div>
@@ -527,11 +542,7 @@
             </select>
             <button class="btn btn-ghost" onclick="openTargetsModal()">Set Targets</button>
             <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
-            <div class="user-chip" id="userChip" style="display:none">
-                <div class="user-avatar" id="userAvatar"></div>
-                <span id="userEmail"></span>
-                <button class="sign-out-btn" onclick="signOut()">Sign out</button>
-            </div>
+            <button class="btn btn-ghost" id="signOutBtn" onclick="signOut()" style="display:none">Sign out</button>
         </div>
     </header>
 
@@ -645,8 +656,6 @@
     </div><!-- /#mainContent -->
 
     <script>
-        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // replace after Google Cloud setup
-
         let currentData = null;
         let charts = {};
 
@@ -1290,68 +1299,48 @@
 
         // ── Auth ──────────────────────────────────────────────────────────────
 
+        const PASSCODE_HASH = 'c3d894096af4c88ad02684dc7c3973b038e87c2b6437c23de1cff02dab496db8';
+
+        async function sha256(str) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+
         function initAuth() {
-            const raw = sessionStorage.getItem('aura_user');
-            if (raw) {
-                try {
-                    const { email, exp } = JSON.parse(raw);
-                    if (Date.now() < exp) { showDashboard(email); return; }
-                } catch(e) {}
-            }
+            const exp = sessionStorage.getItem('aura_exp');
+            if (exp && Date.now() < parseInt(exp)) { showDashboard(); return; }
             showLoginOverlay();
         }
 
         function showLoginOverlay() {
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('mainContent').style.display = 'none';
-            // Wait for GSI library to load
-            const tryInit = () => {
-                if (typeof google === 'undefined') { setTimeout(tryInit, 100); return; }
-                google.accounts.id.initialize({
-                    client_id: GOOGLE_CLIENT_ID,
-                    callback: handleCredentialResponse,
-                    hd: 'unity3d.com'
-                });
-                google.accounts.id.renderButton(
-                    document.getElementById('googleSignInBtn'),
-                    { theme: 'outline', size: 'large', text: 'signin_with', width: 280 }
-                );
-            };
-            tryInit();
+            setTimeout(() => document.getElementById('passcodeInput').focus(), 50);
         }
 
-        function handleCredentialResponse(response) {
-            try {
-                const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-                if (!payload.email || !payload.email.endsWith('@unity3d.com')) {
-                    document.getElementById('loginError').textContent = 'Access restricted to unity3d.com accounts.';
-                    return;
-                }
-                sessionStorage.setItem('aura_user', JSON.stringify({
-                    email: payload.email,
-                    name:  payload.name || payload.email,
-                    exp:   Date.now() + 8 * 60 * 60 * 1000  // 8-hour session
-                }));
-                showDashboard(payload.email, payload.name);
-            } catch(e) {
-                document.getElementById('loginError').textContent = 'Sign-in failed. Please try again.';
+        async function submitPasscode(e) {
+            e.preventDefault();
+            const val = document.getElementById('passcodeInput').value;
+            const hash = await sha256(val);
+            if (hash === PASSCODE_HASH) {
+                sessionStorage.setItem('aura_exp', Date.now() + 8 * 60 * 60 * 1000);
+                showDashboard();
+            } else {
+                document.getElementById('loginError').textContent = 'Incorrect passcode.';
+                document.getElementById('passcodeInput').value = '';
+                document.getElementById('passcodeInput').focus();
             }
         }
 
-        function showDashboard(email, name) {
+        function showDashboard() {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
-            const initials = (name || email).split(/[\s.@]/)[0].slice(0,2).toUpperCase();
-            document.getElementById('userAvatar').textContent = initials;
-            document.getElementById('userEmail').textContent = email;
-            document.getElementById('userChip').style.display = 'flex';
+            document.getElementById('signOutBtn').style.display = '';
             loadData();
         }
 
         function signOut() {
-            sessionStorage.removeItem('aura_user');
-            if (typeof google !== 'undefined') google.accounts.id.disableAutoSelect();
-            document.getElementById('userChip').style.display = 'none';
+            sessionStorage.removeItem('aura_exp');
             showLoginOverlay();
         }
 
