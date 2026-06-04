@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
 Demand dashboard updater.
-Reads the latest "Advertiser daily this Q" Looker email via Gmail API (gws),
-applies the advertiser→team mapping, computes monthly actuals + run rate,
-and writes Demand US / Demand TLV into dashboard_data.json.
+- Reads account→team mapping LIVE from the Q2 targets Google Sheets (US + TLV).
+- Reads revenue from the latest "Advertiser daily this Q" Looker email CSV.
+- Writes Demand US / Demand TLV actuals + run rate into dashboard_data.json.
+
+TODO: replace email revenue source with direct apps_mobile_rg Looker query
+      once Looker MCP access to that explore is confirmed.
 """
 
 import json, csv, io, subprocess, base64, datetime, sys
@@ -12,8 +15,41 @@ from collections import defaultdict
 DIR = "/Users/yariv.sagih/Documents/Claude"
 LOG = f"{DIR}/dashboard_update.log"
 
-# ── Team mapping ──────────────────────────────────────────────────────────────
-US_ACCOUNTS = {a.lower() for a in [
+# Google Sheet IDs for Q2 targets (account → team source of truth)
+SHEET_US  = "1FrQdI5itFnGWV7-Hb9o5vgcFtJIXLqRy1QaQqu-VFSk"
+SHEET_TLV = "1HASLMKk1hGhlkHJsp61WEC68C7QT7gIVlrMAzO3FmK4"
+SHEET_RANGE = "Q2 2026!A1:E200"
+
+
+def load_accounts_from_sheet(spreadsheet_id):
+    """Read account names (column B) from a Q2 targets sheet via gws."""
+    result = subprocess.run(
+        ['gws', 'sheets', '+read', '--spreadsheet', spreadsheet_id, '--range', SHEET_RANGE],
+        capture_output=True, text=True
+    )
+    raw = '\n'.join(l for l in result.stdout.splitlines() if not l.startswith('Using'))
+    d = json.loads(raw)
+    accounts = set()
+    for row in d.get('values', [])[2:]:  # skip header rows
+        if len(row) > 1 and row[1].strip():
+            accounts.add(row[1].strip().lower())
+    return accounts
+
+
+def load_team_mapping():
+    """Return (us_accounts, tlv_accounts) sets loaded live from Google Sheets."""
+    try:
+        us  = load_accounts_from_sheet(SHEET_US)
+        tlv = load_accounts_from_sheet(SHEET_TLV)
+        log(f"  Loaded {len(us)} US accounts, {len(tlv)} TLV accounts from sheets")
+        return us, tlv
+    except Exception as e:
+        log(f"  WARNING: could not load sheets ({e}), falling back to hardcoded list")
+        return _FALLBACK_US, _FALLBACK_TLV
+
+
+# ── Fallback hardcoded lists (used only if Google Sheets are unreachable) ─────
+_FALLBACK_US = {a.lower() for a in [
     "T-Mobile Marketing Solutions (TMS)","ARETIS LIMITED","Scopely_Aura",
     "News Break","Pinterest_AURA","TikTok Aura - 2023","Mobilityware","Chime",
     "Firefox - Mozilla","Lyft","HURELAX PTE. LTD.","TikTok Pte. Ltd. (JP)",
@@ -31,7 +67,7 @@ US_ACCOUNTS = {a.lower() for a in [
     "Shell via Havas","Niantic","WONDERFUL TYCOON LIMITED",
 ]}
 
-TLV_ACCOUNTS = {a.lower() for a in [
+_FALLBACK_TLV = {a.lower() for a in [
     "LEARNINGS CO., LIMITED","King Aura","Whaleco Technology Limited (EU)",
     "Tripledot Aura","Apps Innova Limited","PlaySimple Games Pte Ltd Aura",
     "EASYBRAIN LTD","AKRURA PTE. LTD.","Whaleco Services, LLC",
@@ -124,7 +160,7 @@ def download_csv(message_id, attachment_id):
     return base64.urlsafe_b64decode(d['data'] + '==').decode('utf-8', errors='replace')
 
 
-def process_csv(csv_text, quarter):
+def process_csv(csv_text, quarter, us_accounts, tlv_accounts):
     """Parse CSV and return monthly actuals dict per team."""
     reader = csv.DictReader(io.StringIO(csv_text))
     rows = list(reader)
@@ -138,7 +174,7 @@ def process_csv(csv_text, quarter):
 
     us_m  = defaultdict(float)
     tlv_m = defaultdict(float)
-    unmatched = defaultdict(float)
+    unmatched = defaultdict(lambda: defaultdict(float))
 
     for r in rows:
         adv   = r[ac].strip()
@@ -147,14 +183,21 @@ def process_csv(csv_text, quarter):
         if not month or rev == 0:
             continue
         key = adv.lower()
-        if   key in US_ACCOUNTS:  us_m[month]  += rev
-        elif key in TLV_ACCOUNTS: tlv_m[month] += rev
-        else:                     unmatched[month] += rev
+        if   key in us_accounts:  us_m[month]  += rev
+        elif key in tlv_accounts: tlv_m[month] += rev
+        else:                     unmatched[adv][month] += rev
 
-    # 60/40 split for unmatched
-    for month, v in unmatched.items():
-        tlv_m[month] += v * 0.60
-        us_m[month]  += v * 0.40
+    # Log unmatched accounts with significant revenue, then 60/40 split
+    unmatched_total = sum(sum(m.values()) for m in unmatched.values())
+    if unmatched_total > 0:
+        top = sorted(((a, sum(m.values())) for a,m in unmatched.items()), key=lambda x:-x[1])[:5]
+        log(f"  Unmatched revenue: ${unmatched_total:,.0f} across {len(unmatched)} accounts")
+        for a,v in top:
+            log(f"    {a}: ${v:,.0f}")
+        for adv_months in unmatched.values():
+            for month, v in adv_months.items():
+                tlv_m[month] += v * 0.60
+                us_m[month]  += v * 0.40
 
     return us_m, tlv_m
 
@@ -198,7 +241,8 @@ def main():
         log(f"ERROR fetching email: {e}")
         sys.exit(1)
 
-    us_m, tlv_m = process_csv(csv_text, quarter)
+    us_accounts, tlv_accounts = load_team_mapping()
+    us_m, tlv_m = process_csv(csv_text, quarter, us_accounts, tlv_accounts)
     us_q  = sum(us_m.values())
     tlv_q = sum(tlv_m.values())
 
